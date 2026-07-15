@@ -66,11 +66,20 @@ export class Enemy {
     this._flash = 0;
   }
 
-  damage(amount) {
+  damage(amount, source) {
     if (!this.alive) return false;
     this.hp -= amount;
     this.aggro = true;                   // getting shot wakes it
     this._flash = 1;
+    // knockback away from the shot source (bosses barely flinch)
+    if (source && !this.isBoss) {
+      const dx = this.position.x - source.x, dz = this.position.z - source.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const kb = 0.35;
+      const nx = this.position.x + (dx / len) * kb, nz = this.position.z + (dz / len) * kb;
+      if (!this.ctx.collision.collides(nx, this.position.z, this.hitRadius)) this.position.x = nx;
+      if (!this.ctx.collision.collides(this.position.x, nz, this.hitRadius)) this.position.z = nz;
+    }
     if (this.hp <= 0) { this._die(); return true; }
     return false;
   }

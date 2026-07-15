@@ -138,13 +138,14 @@ class Game {
       getEnemies: () => this.enemies,
       getSolids: () => this.solids.filter((s) => s.visible),
       onKill: (e) => this.onKill(e),
+      onHit: () => { this.audio.play('hit'); this.hud.hitmarker(); },
       onFire: (kind) => this.audio.play(kind === 'empty' ? 'empty' : (this.weapons.current === 'inferno' ? 'inferno' : 'staff')),
     });
 
     // enemies
     const enemyCtx = {
       scene: this.scene, player: this.player, collision: this.collision,
-      onPlayerDamage: (amt) => { this.player.damage(amt); this.audio.play('hurt'); },
+      onPlayerDamage: (amt, enemy) => { this.player.damage(amt, enemy?.position); this.audio.play('hurt'); },
       onTracer: (from, to, color) => this.spawnTracer(from, to, color, 0.08),
     };
     this.enemies = spawns.enemies.map((s) => new Enemy(s.kind, s.x, s.z, enemyCtx));
@@ -154,6 +155,7 @@ class Game {
     // pickups
     this.pickups = new Pickups(this.scene, spawns);
 
+    this.hud.setMap(lvl.grid);
     this.kills = 0;
     this._menuYaw = 0;
   }
@@ -248,8 +250,13 @@ class Game {
         health: this.player.health, armor: this.player.armor, maxHealth: this.player.maxHealth,
         ammo: this.weapons.currentAmmo(), weaponName: this.weapons.def().name, weaponId: this.weapons.current,
         keys: this.player.keys, hurt: this.player.hurtFlash, flash: this.weapons.flash, recoil: this.weapons.recoil,
+        hurtDir: this.player.hurtDir, hurtDirActive: this.player.hurtDirActive,
         objective: this.objectiveText(),
         boss: this.boss ? { active: this.boss.aggro && this.boss.alive, hp: this.boss.hp, maxHp: this.boss.maxHp, name: 'THE GUARDIAN' } : null,
+        map: {
+          scale: S, px: this.player.pos.x, pz: this.player.pos.z, yaw: this.player.yaw,
+          enemies: this.enemies, pickups: this.pickups.items, doors: this.doors, exit: this.exit,
+        },
       });
 
       // torch follows the eye

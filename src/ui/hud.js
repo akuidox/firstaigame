@@ -7,15 +7,26 @@ import { KEY_COLORS } from '../world/tiles.js';
 
 const AMBER = '#e8c14a';
 
+function dot(ctx, x, y, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(1.2, r), 0, 7);
+  ctx.fill();
+}
+
 export class Hud {
   constructor(root) {
     this.root = root;
     this._msg = '';
     this._msgTimer = 0;
+    this._hitTimer = 0;
     this._build();
     this._drawViewmodel('staff');
     this._lastWeapon = 'staff';
   }
+
+  setMap(grid) { this._grid = grid; }
+  hitmarker() { this._hitTimer = 0.16; }
 
   _el(tag, style, parent) {
     const e = document.createElement(tag);
@@ -39,6 +50,10 @@ export class Hud {
       boxShadow: 'inset 0 0 200px 60px rgba(180,0,0,0.0)',
       transition: 'box-shadow 0.08s linear',
     });
+    // full-screen red flash on taking a hit
+    this.flashEl = this._el('div', {
+      position: 'absolute', inset: '0', background: '#c00000', opacity: '0', mixBlendMode: 'multiply',
+    });
 
     // crosshair
     const ch = this._el('div', {
@@ -47,6 +62,23 @@ export class Hud {
     });
     ch.innerHTML = `<div style="position:absolute;left:8px;top:0;width:2px;height:18px;background:${AMBER};opacity:.8"></div>
                     <div style="position:absolute;left:0;top:8px;width:18px;height:2px;background:${AMBER};opacity:.8"></div>`;
+
+    // hitmarker (an X that pops when a shot connects)
+    this.hitMark = this._el('div', {
+      position: 'absolute', left: '50%', top: '50%', width: '26px', height: '26px',
+      transform: 'translate(-50%,-50%)', opacity: '0',
+    });
+    this.hitMark.innerHTML = ['0', '90', '180', '270'].map((r) =>
+      `<div style="position:absolute;left:50%;top:50%;width:10px;height:3px;background:#fff;
+        transform:translate(-50%,-50%) rotate(45deg) translateX(9px) rotate(${r}deg);
+        transform-origin:center"></div>`).join('');
+
+    // directional damage indicator (points toward the source of the last hit)
+    this.dmgArrow = this._el('div', {
+      position: 'absolute', left: '50%', top: '50%', width: '0', height: '0', opacity: '0',
+      borderLeft: '13px solid transparent', borderRight: '13px solid transparent',
+      borderBottom: '20px solid rgba(255,40,40,0.9)',
+    });
 
     // viewmodel (bottom-center)
     this.viewWrap = this._el('div', {
@@ -81,6 +113,18 @@ export class Hud {
     this.keysBox = this._el('div', {
       position: 'absolute', top: '14px', left: '18px', display: 'flex', gap: '8px',
     });
+
+    // minimap / automap (top-right)
+    this.mapWrap = this._el('div', {
+      position: 'absolute', top: '14px', right: '18px',
+      padding: '6px', background: 'rgba(10,6,12,0.6)',
+      border: '2px solid rgba(232,193,74,0.35)', borderRadius: '4px',
+    });
+    this.mapCanvas = document.createElement('canvas');
+    this.mapCanvas.width = 150; this.mapCanvas.height = 132;
+    Object.assign(this.mapCanvas.style, { display: 'block', width: '150px', height: '132px', imageRendering: 'auto' });
+    this.mapWrap.appendChild(this.mapCanvas);
+    this._grid = null;
 
     // message + objective (top-center)
     this.objective = this._el('div', {
@@ -118,6 +162,8 @@ export class Hud {
       this._msgTimer -= dt;
       if (this._msgTimer <= 0) this.message.style.opacity = '0';
     }
+    if (this._hitTimer > 0) this._hitTimer = Math.max(0, this._hitTimer - dt);
+    this.hitMark.style.opacity = String((this._hitTimer / 0.16) * 0.95);
   }
 
   update(s) {
@@ -146,9 +192,19 @@ export class Hud {
 
     this.objective.textContent = s.objective || '';
 
-    // damage vignette
+    // damage vignette + flash + directional indicator
     const hurt = Math.max(s.hurt || 0, 0);
-    this.vignette.style.boxShadow = `inset 0 0 200px 60px rgba(180,0,0,${hurt * 0.6})`;
+    this.vignette.style.boxShadow = `inset 0 0 220px 70px rgba(190,0,0,${hurt * 0.75})`;
+    this.flashEl.style.opacity = String(hurt * 0.4);
+    const dirA = s.hurtDirActive || 0;
+    if (dirA > 0) {
+      const deg = (s.hurtDir || 0) * 180 / Math.PI;
+      this.dmgArrow.style.opacity = String(Math.min(1, dirA));
+      this.dmgArrow.style.transform =
+        `translate(-50%,-50%) rotate(${deg}deg) translateY(-94px) rotate(180deg)`;
+    } else {
+      this.dmgArrow.style.opacity = '0';
+    }
 
     // viewmodel recoil + bob + flash
     if (s.weaponId !== this._lastWeapon) { this._drawViewmodel(s.weaponId); this._lastWeapon = s.weaponId; }
@@ -164,6 +220,61 @@ export class Hud {
     } else {
       this.bossWrap.style.display = 'none';
     }
+
+    if (s.map) this._drawMinimap(s.map);
+  }
+
+  _drawMinimap(m) {
+    const grid = this._grid;
+    if (!grid) return;
+    const cv = this.mapCanvas, ctx = cv.getContext('2d');
+    const H = grid.length, W = grid[0].length;
+    const cell = Math.min(cv.width / W, cv.height / H);
+    const ox = (cv.width - cell * W) / 2, oy = (cv.height - cell * H) / 2;
+    const S = m.scale;
+    const px = (wx, wz) => [ox + (wx / S) * cell, oy + (wz / S) * cell];
+
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    // walls vs floor
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const ch = grid[y][x];
+        ctx.fillStyle = ch === '#' ? '#4a3d34' : 'rgba(30,22,26,0.55)';
+        ctx.fillRect(ox + x * cell, oy + y * cell, cell + 0.5, cell + 0.5);
+      }
+    }
+    // doors (colored while shut, faded once open)
+    for (const d of m.doors) {
+      ctx.fillStyle = d.open ? 'rgba(120,90,60,0.4)'
+        : (d.keyColor ? KEY_COLORS[d.keyColor].hex : '#8a6a3a');
+      ctx.fillRect(ox + d.gx * cell, oy + d.gy * cell, cell + 0.5, cell + 0.5);
+    }
+    // exit
+    if (m.exit) { const [x, y] = px(m.exit.x, m.exit.z); dot(ctx, x, y, cell * 0.55, '#7dff8a'); }
+    // pickups
+    for (const it of m.pickups) {
+      if (it.collected) continue;
+      const c = it.kind === 'key' ? KEY_COLORS[it.color].hex
+        : it.kind === 'health' ? '#ff6a6a' : it.kind === 'ammo' ? '#e8951f' : '#6ad2ff';
+      const [x, y] = px(it.x, it.z);
+      dot(ctx, x, y, it.kind === 'key' ? cell * 0.5 : cell * 0.38, c);
+    }
+    // enemies
+    for (const e of m.enemies) {
+      if (!e.alive) continue;
+      const [x, y] = px(e.position.x, e.position.z);
+      dot(ctx, x, y, e.isBoss ? cell * 0.7 : cell * 0.4, e.isBoss ? '#ff3030' : '#ff5a4a');
+    }
+    // player arrow
+    const [pxx, pyy] = px(m.px, m.pz);
+    const fx = -Math.sin(m.yaw), fy = -Math.cos(m.yaw);
+    const rx = -fy, ry = fx, len = cell * 1.1;
+    ctx.fillStyle = '#ffe9b0';
+    ctx.beginPath();
+    ctx.moveTo(pxx + fx * len, pyy + fy * len);
+    ctx.lineTo(pxx - fx * len * 0.5 + rx * len * 0.6, pyy - fy * len * 0.5 + ry * len * 0.6);
+    ctx.lineTo(pxx - fx * len * 0.5 - rx * len * 0.6, pyy - fy * len * 0.5 - ry * len * 0.6);
+    ctx.closePath(); ctx.fill();
   }
 
   _drawViewmodel(kind) {

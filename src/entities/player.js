@@ -27,6 +27,9 @@ export class Player {
     this.alive = true;
     this.bob = 0;
     this._hurtFlash = 0;
+    this._shake = 0;
+    this.hurtDir = 0;          // angle of last hit, relative to view (0 = ahead)
+    this._hurtDirTimer = 0;
     this._useCooldown = 0;
     this.sensitivity = 0.0022;
     camera.rotation.order = 'YXZ';
@@ -43,7 +46,7 @@ export class Player {
     return new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
   }
 
-  damage(amount) {
+  damage(amount, source) {
     if (!this.alive) return;
     // Armor soaks a third of incoming damage.
     if (this.armor > 0) {
@@ -53,6 +56,16 @@ export class Player {
     }
     this.health -= amount;
     this._hurtFlash = 1;
+    this._shake = Math.min(1.2, this._shake + 0.7);
+    if (source) {
+      // bearing of the hit relative to where we're looking
+      const dx = source.x - this.pos.x, dz = source.z - this.pos.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const fwd = (dx * -Math.sin(this.yaw) + dz * -Math.cos(this.yaw)) / len;
+      const rgt = (dx * Math.cos(this.yaw) + dz * -Math.sin(this.yaw)) / len;
+      this.hurtDir = Math.atan2(rgt, fwd);
+      this._hurtDirTimer = 1;
+    }
     if (this.health <= 0) {
       this.health = 0;
       this.alive = false;
@@ -109,6 +122,8 @@ export class Player {
     const speed = Math.hypot(this.vel.x, this.vel.z);
     this.bob += dt * speed * 1.6;
     if (this._hurtFlash > 0) this._hurtFlash = Math.max(0, this._hurtFlash - dt * 2);
+    if (this._shake > 0) this._shake = Math.max(0, this._shake - dt * 3.5);
+    if (this._hurtDirTimer > 0) this._hurtDirTimer = Math.max(0, this._hurtDirTimer - dt * 1.2);
 
     this._syncCamera();
   }
@@ -137,12 +152,17 @@ export class Player {
 
   _syncCamera() {
     const bobY = Math.sin(this.bob * 2) * 0.05;
-    this.camera.position.set(this.pos.x, this.pos.y + bobY, this.pos.z);
+    const sh = this._shake;
+    const sx = sh ? (Math.random() - 0.5) * sh * 0.18 : 0;
+    const sy = sh ? (Math.random() - 0.5) * sh * 0.18 : 0;
+    this.camera.position.set(this.pos.x + sx, this.pos.y + bobY + sy, this.pos.z);
     this.camera.rotation.y = this.yaw;
     this.camera.rotation.x = this.pitch;
+    this.camera.rotation.z = sh ? (Math.random() - 0.5) * sh * 0.04 : 0;
   }
 
   get hurtFlash() { return this._hurtFlash; }
+  get hurtDirActive() { return this._hurtDirTimer; }
 }
 
 function approach(v, target, maxDelta) {

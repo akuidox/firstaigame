@@ -92,6 +92,7 @@ export class WeaponManager {
     const enemies = this.ctx.getEnemies();
     const solids = this.ctx.getSolids();
 
+    let hitAny = false, hitPoint = null;
     for (let p = 0; p < d.pellets; p++) {
       const dir = baseDir.clone();
       if (d.spread) {
@@ -118,10 +119,12 @@ export class WeaponManager {
       const end = origin.clone().addScaledVector(dir, endDist);
       this._spawnTracer(origin, end, d.tracer);
       if (target) {
-        const dead = target.damage(d.damage);
+        hitAny = true; hitPoint = end;
+        const dead = target.damage(d.damage, origin);
         if (dead) this.ctx.onKill?.(target);
       }
     }
+    if (hitAny) this.ctx.onHit?.(hitPoint);
     this.ctx.onFire?.('shot');
   }
 
