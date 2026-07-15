@@ -35,7 +35,7 @@ export class Screens {
       <div style="max-width:520px;font-size:14px;line-height:1.9;opacity:.9;background:rgba(0,0,0,0.35);border:2px solid rgba(232,193,74,0.3);padding:16px 22px;border-radius:6px">
         <div style="color:#c9b0ff;margin-bottom:8px">Gather the sigils. Open the sealed gate. Slay what guards the way out.</div>
         <div><b>WASD / Arrows</b> — move &nbsp;·&nbsp; <b>Mouse</b> — look &nbsp;·&nbsp; <b>Click</b> — fire</div>
-        <div><b>1 / 2</b> — weapons &nbsp;·&nbsp; <b>Q</b> — cycle &nbsp;·&nbsp; <b>E / Space</b> — open doors</div>
+        <div><b>1 / 2 / 3</b> — weapons &nbsp;·&nbsp; <b>Q</b> — cycle &nbsp;·&nbsp; <b>E / Space</b> — open doors</div>
         <div><b>Esc</b> — release mouse</div>
       </div>
       <div style="margin-top:30px;font-size:22px;color:#fff;animation:none">▶ CLICK TO DESCEND</div>

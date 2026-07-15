@@ -16,9 +16,13 @@ export const WEAPONS = {
     damage: 11, cooldown: 0.72, pellets: 6, spread: 0.13, range: 24, ammoPerShot: 1,
     tracer: 0xff7a2a,
   },
+  chaosorb: {
+    id: 'chaosorb', name: 'Chaos Orb', ammo: 'soul', kind: 'projectile',
+    damage: 70, splash: 2.8, cooldown: 0.85, ammoPerShot: 1, projSpeed: 15, color: '#9a3cff',
+  },
 };
 
-const ORDER = ['staff', 'inferno'];
+const ORDER = ['staff', 'inferno', 'chaosorb'];
 
 // ray (origin,dir) vs sphere(center,r) -> distance along ray or Infinity
 function raySphere(origin, dir, center, r) {
@@ -37,7 +41,7 @@ export class WeaponManager {
     this.ctx = ctx;                 // { camera, scene, getEnemies, getSolids, onKill, onFire }
     this.owned = new Set(['staff']);
     this.current = 'staff';
-    this.ammo = { fire: 0 };
+    this.ammo = { fire: 0, soul: 0 };
     this.cooldown = 0;
     this.flash = 0;                 // 0..1, decays; HUD renders muzzle flash
     this.recoil = 0;                // 0..1, decays; HUD kicks the viewmodel
@@ -89,6 +93,17 @@ export class WeaponManager {
     const cam = this.ctx.camera;
     const origin = cam.getWorldPosition(new THREE.Vector3());
     const baseDir = cam.getWorldDirection(new THREE.Vector3());
+
+    // projectile weapons spawn a slow orb instead of a hitscan ray
+    if (d.kind === 'projectile') {
+      this.ctx.spawnProjectile({
+        x: origin.x, z: origin.z, dx: baseDir.x, dz: baseDir.z,
+        speed: d.projSpeed, damage: d.damage, splash: d.splash, from: 'player', color: d.color,
+      });
+      this.ctx.onFire?.('shot');
+      return;
+    }
+
     const enemies = this.ctx.getEnemies();
     const solids = this.ctx.getSolids();
 
@@ -144,6 +159,7 @@ export class WeaponManager {
     if (input) {
       if (input.pressed('Digit1')) this.switchTo('staff');
       if (input.pressed('Digit2')) this.switchTo('inferno');
+      if (input.pressed('Digit3')) this.switchTo('chaosorb');
       if (input.pressed('KeyQ')) this.cycle(1);
       if (input.fireHeld || input.firePressed) this.tryFire();
     }

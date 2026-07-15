@@ -194,8 +194,8 @@ export class Hud {
 
     // damage vignette + flash + directional indicator
     const hurt = Math.max(s.hurt || 0, 0);
-    this.vignette.style.boxShadow = `inset 0 0 220px 70px rgba(190,0,0,${hurt * 0.75})`;
-    this.flashEl.style.opacity = String(hurt * 0.4);
+    this.vignette.style.boxShadow = `inset 0 0 210px 64px rgba(190,0,0,${hurt * 0.6})`;
+    this.flashEl.style.opacity = String(hurt * 0.24);
     const dirA = s.hurtDirActive || 0;
     if (dirA > 0) {
       const deg = (s.hurtDir || 0) * 180 / Math.PI;
@@ -281,7 +281,18 @@ export class Hud {
     const c = this.viewCanvas, ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
     const cx = c.width / 2;
-    if (kind === 'inferno') {
+    if (kind === 'chaosorb') {
+      // a clawed gauntlet cradling a glowing orb
+      ctx.fillStyle = '#2a1a3a'; ctx.fillRect(cx - 22, 86, 44, 44);      // forearm
+      ctx.fillStyle = '#3a2650';
+      ctx.beginPath(); ctx.arc(cx, 70, 22, 0, 7); ctx.fill();            // fist
+      ctx.fillStyle = 'rgba(154,60,255,0.35)'; ctx.beginPath(); ctx.arc(cx, 52, 26, 0, 7); ctx.fill();
+      ctx.fillStyle = '#9a3cff'; ctx.beginPath(); ctx.arc(cx, 52, 15, 0, 7); ctx.fill();
+      ctx.fillStyle = '#e6ccff'; ctx.beginPath(); ctx.arc(cx, 52, 7, 0, 7); ctx.fill();
+      // claws
+      ctx.strokeStyle = '#4a3060'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (const dx of [-16, 0, 16]) { ctx.beginPath(); ctx.moveTo(cx + dx, 66); ctx.lineTo(cx + dx * 1.3, 44); ctx.stroke(); }
+    } else if (kind === 'inferno') {
       // stubby fire-cannon, held center
       ctx.fillStyle = '#3a2a1a'; ctx.fillRect(cx - 26, 70, 52, 60);   // stock
       ctx.fillStyle = '#555'; ctx.fillRect(cx - 16, 40, 32, 40);      // body

@@ -7,10 +7,11 @@
 //   #  wall            +  door (opens when you walk up to it)
 //   .  floor (space also = floor)
 //   P  player start
-//   e  imp        c  cultist       M  boss (mini-boss)
+//   e  imp        c  cultist       H  hound (charger)     M  boss (mini-boss)
 //   R  locked door RED    G  locked door GREEN    B  locked door BLUE
 //   r  red key    g  green key     b  blue key
-//   h  health pickup      a  ammo pickup          w  weapon pickup
+//   h  health pickup      a  ammo (fire)          w  weapon (Inferno)
+//   o  Chaos Orb weapon   s  soul ammo (Chaos Orb)
 //   t  wall torch (light + decoration)            E  exit trigger
 //
 // Anything not listed is treated as floor.

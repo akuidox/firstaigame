@@ -121,7 +121,7 @@ export class Player {
     // --- head bob ---
     const speed = Math.hypot(this.vel.x, this.vel.z);
     this.bob += dt * speed * 1.6;
-    if (this._hurtFlash > 0) this._hurtFlash = Math.max(0, this._hurtFlash - dt * 2);
+    if (this._hurtFlash > 0) this._hurtFlash = Math.max(0, this._hurtFlash - dt * 3.2);
     if (this._shake > 0) this._shake = Math.max(0, this._shake - dt * 3.5);
     if (this._hurtDirTimer > 0) this._hurtDirTimer = Math.max(0, this._hurtDirTimer - dt * 1.2);
 

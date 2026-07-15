@@ -138,10 +138,13 @@ export function buildLevel(scene, level) {
           break;
         case 'e': spawns.enemies.push({ kind: 'imp', x: p.x, z: p.z }); break;
         case 'c': spawns.enemies.push({ kind: 'cultist', x: p.x, z: p.z }); break;
+        case 'H': spawns.enemies.push({ kind: 'hound', x: p.x, z: p.z }); break;
         case 'M': spawns.enemies.push({ kind: 'boss', x: p.x, z: p.z }); break;
         case 'h': spawns.pickups.push({ kind: 'health', x: p.x, z: p.z }); break;
         case 'a': spawns.pickups.push({ kind: 'ammo', x: p.x, z: p.z }); break;
         case 'w': spawns.pickups.push({ kind: 'weapon', x: p.x, z: p.z }); break;
+        case 'o': spawns.pickups.push({ kind: 'orb', x: p.x, z: p.z }); break;
+        case 's': spawns.pickups.push({ kind: 'soul', x: p.x, z: p.z }); break;
         case 'r': case 'g': case 'b':
           spawns.pickups.push({ kind: 'key', color: ch, x: p.x, z: p.z });
           break;

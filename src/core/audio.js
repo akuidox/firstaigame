@@ -49,6 +49,8 @@ export class Audio {
       case 'door': this._blip({ type: 'sawtooth', f0: 90, f1: 50, dur: 0.4, gain: 0.4 }); break;
       case 'locked': this._blip({ type: 'square', f0: 140, f1: 100, dur: 0.12, gain: 0.3 }); break;
       case 'kill': this._blip({ type: 'square', f0: 240, f1: 60, dur: 0.25, gain: 0.45 }); break;
+      case 'orb': this._blip({ type: 'sine', f0: 420, f1: 140, dur: 0.2, gain: 0.4 }); break;
+      case 'explode': this._blip({ noise: true, dur: 0.35, gain: 0.7 }); this._blip({ type: 'sine', f0: 120, f1: 40, dur: 0.3, gain: 0.5 }); break;
       case 'boss': this._blip({ type: 'sawtooth', f0: 70, f1: 40, dur: 0.6, gain: 0.6 }); break;
       case 'win': this._blip({ type: 'triangle', f0: 440, f1: 880, dur: 0.5, gain: 0.5 }); break;
     }

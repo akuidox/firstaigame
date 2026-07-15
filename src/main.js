@@ -14,6 +14,7 @@ import { Player } from './entities/player.js';
 import { Enemy, resetSpriteCache } from './entities/enemy.js';
 import { WeaponManager } from './systems/weapons.js';
 import { Pickups } from './systems/pickups.js';
+import { Projectiles } from './systems/projectiles.js';
 import { Hud } from './ui/hud.js';
 import { Screens } from './ui/screens.js';
 
@@ -47,6 +48,8 @@ class Game {
 
     this.levelGroup = null;
     this.tracers = [];
+    this.gibs = [];
+    this.fx = [];
     this.clock = new THREE.Clock();
 
     this.input.onLockChange = (locked) => {
@@ -94,6 +97,11 @@ class Game {
     for (const e of this.enemies || []) if (e.alive) this.scene.remove(e.sprite);
     for (const t of this.tracers) this.scene.remove(t.line);
     this.tracers = [];
+    for (const g of this.gibs) this.scene.remove(g.sprite);
+    this.gibs = [];
+    for (const f of this.fx) this.scene.remove(f.light);
+    this.fx = [];
+    if (this.projectiles) this.projectiles.clear();
     resetSpriteCache();
 
     const lvl = level1;
@@ -132,21 +140,33 @@ class Game {
     });
     this.player.spawn(spawns.player.x, spawns.player.z, 0);
 
+    // projectiles (Chaos Orb + enemy bolts)
+    this.projectiles = new Projectiles(this.scene, {
+      collision: this.collision,
+      player: this.player,
+      getEnemies: () => this.enemies,
+      onPlayerDamage: (amt, src) => this._hurtPlayer(amt, src),
+      onKill: (e) => this.onKill(e),
+      onHit: () => { this.audio.play('hit'); this.hud.hitmarker(); },
+      onExplode: (pos, radius, color) => this.explode(pos, radius, color),
+    });
+
     // weapons
     this.weapons = new WeaponManager({
       camera: this.camera, scene: this.scene,
       getEnemies: () => this.enemies,
       getSolids: () => this.solids.filter((s) => s.visible),
+      spawnProjectile: (o) => this.projectiles.spawn(o),
       onKill: (e) => this.onKill(e),
       onHit: () => { this.audio.play('hit'); this.hud.hitmarker(); },
-      onFire: (kind) => this.audio.play(kind === 'empty' ? 'empty' : (this.weapons.current === 'inferno' ? 'inferno' : 'staff')),
+      onFire: (kind) => this.audio.play(kind === 'empty' ? 'empty' : ({ inferno: 'inferno', chaosorb: 'orb' }[this.weapons.current] || 'staff')),
     });
 
     // enemies
     const enemyCtx = {
       scene: this.scene, player: this.player, collision: this.collision,
-      onPlayerDamage: (amt, enemy) => { this.player.damage(amt, enemy?.position); this.audio.play('hurt'); },
-      onTracer: (from, to, color) => this.spawnTracer(from, to, color, 0.08),
+      onPlayerDamage: (amt, enemy) => this._hurtPlayer(amt, enemy?.position),
+      spawnEnemyProjectile: (o) => this.projectiles.spawn({ ...o, from: 'enemy' }),
     };
     this.enemies = spawns.enemies.map((s) => new Enemy(s.kind, s.x, s.z, enemyCtx));
     this.boss = this.enemies.find((e) => e.isBoss) || null;
@@ -177,7 +197,59 @@ class Game {
   onKill(e) {
     this.kills++;
     this.audio.play(e.isBoss ? 'boss' : 'kill');
+    const gibColor = { imp: 0xaa2a1a, cultist: 0x6a3c9a, hound: 0xff6a2a, boss: 0x8b1a1a }[e.kind] || 0xaa2a1a;
+    this.spawnGibs(e.position, gibColor, e.isBoss ? 28 : 12);
     if (e.isBoss) this.hud.message_('The guardian falls. The gate lies open ahead.');
+  }
+
+  _hurtPlayer(amount, source) {
+    this.player.damage(amount, source);
+    this.audio.play('hurt');
+  }
+
+  spawnGibs(pos, color, count = 12) {
+    for (let i = 0; i < count; i++) {
+      const mat = new THREE.SpriteMaterial({ color, transparent: true, fog: true });
+      const s = new THREE.Sprite(mat);
+      const size = 0.1 + Math.random() * 0.14;
+      s.scale.set(size, size, 1);
+      s.position.set(pos.x, 1.0, pos.z);
+      this.scene.add(s);
+      const ang = Math.random() * Math.PI * 2, spd = 2 + Math.random() * 5;
+      this.gibs.push({
+        sprite: s, x: pos.x, y: 1.0, z: pos.z,
+        vx: Math.cos(ang) * spd, vy: 2.5 + Math.random() * 4.5, vz: Math.sin(ang) * spd,
+        life: 0.5 + Math.random() * 0.5,
+      });
+    }
+  }
+
+  explode(pos, radius, color) {
+    this.audio.play('explode');
+    const light = new THREE.PointLight(new THREE.Color(color), 40, radius * 4 + 5, 2);
+    light.position.set(pos.x, pos.y, pos.z);
+    this.scene.add(light);
+    this.fx.push({ light, life: 0.22, max: 0.22, base: 40 });
+    this.spawnGibs(pos, color, radius > 1 ? 16 : 6);
+  }
+
+  _updateGibs(dt) {
+    for (let i = this.gibs.length - 1; i >= 0; i--) {
+      const g = this.gibs[i];
+      g.life -= dt;
+      g.vy -= 13 * dt;
+      g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt;
+      if (g.y < 0.06) { g.y = 0.06; g.vy *= -0.35; g.vx *= 0.6; g.vz *= 0.6; }
+      g.sprite.position.set(g.x, g.y, g.z);
+      g.sprite.material.opacity = Math.max(0, Math.min(1, g.life * 2));
+      if (g.life <= 0) { this.scene.remove(g.sprite); g.sprite.material.dispose(); this.gibs.splice(i, 1); }
+    }
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const f = this.fx[i];
+      f.life -= dt;
+      f.light.intensity = f.base * Math.max(0, f.life / f.max);
+      if (f.life <= 0) { this.scene.remove(f.light); this.fx.splice(i, 1); }
+    }
   }
 
   spawnTracer(from, to, color, life) {
@@ -234,7 +306,9 @@ class Game {
         this.audio.play(/sigil/i.test(m) ? 'key' : 'pickup');
       });
       for (const d of this.doors) d.update(dt);
+      this.projectiles.update(dt);
       this._updateTracers(dt);
+      this._updateGibs(dt);
 
       // exit: requires the guardian dead
       if (this.exit) {

@@ -130,6 +130,7 @@ const P = {
   imp: { r: '#7a1f14', d: '#4a120b', y: '#e8a33d', w: '#ffe9b0', k: '#1a0805', e: '#ffd23f', '.': null, ' ': null },
   boss: { r: '#5a0f2a', d: '#2e0714', y: '#c9433f', h: '#e8c14a', k: '#120306', e: '#ff3b3b', b: '#8b1a1a', '.': null, ' ': null },
   cultist: { r: '#3a2a5a', d: '#221540', s: '#c9b48a', y: '#e8d29a', k: '#0e0820', e: '#8affff', '.': null, ' ': null },
+  hound: { r: '#6a2510', d: '#3a1408', y: '#2a0d04', e: '#ff7a2a', k: '#150602', '.': null, ' ': null },
 };
 
 const SPRITES = {
@@ -162,6 +163,17 @@ const SPRITES = {
     'bbrrrrbb',
     '.brrrrb.',
     'bd.bb.db',
+  ],
+  // low four-legged beast, glowing eyes
+  hound: [
+    '........',
+    'k......k',
+    'rk....kr',
+    'rrkeekrr',
+    'rrrrrrrd',
+    'drrrrrrd',
+    'd.d..d.d',
+    'y.y..y.y',
   ],
 };
 
@@ -234,4 +246,22 @@ export function makeWeaponPickupTexture() {
     ctx.fillRect(s * 0.76, s * 0.28, s * 0.1, s * 0.14); // muzzle glow
   });
   return retro(new THREE.CanvasTexture(c));
+}
+
+// Smooth radial glow — used for projectiles and the orb pickup. `hex` tints it.
+export function makeOrbTexture(hex = '#9a3cff') {
+  const size = 48;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.25, hex);
+  g.addColorStop(0.6, hex + 'aa');
+  g.addColorStop(1, hex + '00');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }

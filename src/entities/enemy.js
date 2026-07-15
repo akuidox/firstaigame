@@ -14,12 +14,16 @@ export const ENEMY_TYPES = {
   cultist: {
     hp: 26, speed: 2.2, height: 1.8, damage: 11,
     melee: S * 0.9, awaken: 20, cooldown: 1.7, ranged: true, rangedRange: S * 7,
-    tracer: 0x9a5cff, tint: 0xffffff,
+    projSpeed: 9, projColor: '#8affff', tint: 0xffffff,
+  },
+  hound: {
+    hp: 22, speed: 5.4, height: 1.3, damage: 12,
+    melee: S * 0.95, awaken: 24, cooldown: 0.8, ranged: false, tint: 0xffffff,
   },
   boss: {
     hp: 280, speed: 2.7, height: 2.9, damage: 20, isBoss: true,
     melee: S * 1.15, awaken: 26, cooldown: 1.1, ranged: true, rangedRange: S * 9,
-    tracer: 0xff4a4a, tint: 0xffdddd,
+    projSpeed: 11, projColor: '#ff5a4a', tint: 0xffdddd,
   },
 };
 
@@ -129,10 +133,11 @@ export class Enemy {
       this.ctx.onPlayerDamage(this.def.damage, this);
     } else if (wantRanged && this.attackTimer === 0) {
       this.attackTimer = this.def.cooldown;
-      this.ctx.onPlayerDamage(this.def.damage * 0.8, this);
-      const from = this.position.clone(); from.y = 1.2;
-      const to = new THREE.Vector3(px, 1.4, pz);
-      this.ctx.onTracer?.(from, to, this.def.tracer);
+      // lob a dodgeable bolt toward where the player is now
+      this.ctx.spawnEnemyProjectile?.({
+        x: this.position.x, z: this.position.z, dx: px - this.position.x, dz: pz - this.position.z,
+        damage: this.def.damage * 0.85, color: this.def.projColor, speed: this.def.projSpeed,
+      });
     }
 
     this._syncSprite();

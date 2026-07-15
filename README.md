@@ -42,15 +42,21 @@ Grimhold.
 | `W A S D` / Arrows | Move |
 | Mouse | Look |
 | Left-click | Fire |
-| `1` / `2` | Select weapon (`Q` to cycle) |
+| `1` / `2` / `3` | Select weapon (`Q` to cycle) |
 | `E` / `Space` | Open doors / use |
 | `Esc` | Release the mouse (click to resume) |
 
 **The loop:** you start with the **Arcane Staff** (unlimited). Fight through the
 halls, find the **red sigil** (guarded by cultists), open the sealed red gate,
-then slay **the Guardian** blocking the exit. Grab the **Inferno** (a limited-ammo
-fire-cannon) and the optional **blue sigil** vault for extra supplies along the
-way. Reach the exit alive to win.
+then slay **the Guardian** blocking the exit. Along the way grab the **Inferno**
+(a limited-ammo fire spread) and the **Chaos Orb** (a slow projectile that
+explodes for splash damage), and dodge the bolts thrown by cultists and hounds.
+The optional **blue sigil** vault holds extra supplies. Reach the exit alive to win.
+
+**Weapons:** `1` Arcane Staff (rapid hitscan, unlimited) · `2` Inferno (6-pellet
+spread, fire charges) · `3` Chaos Orb (explosive projectile, souls).
+**Enemies:** imps (melee), cultists (ranged bolts), hounds (fast chargers), and
+the Guardian boss.
 
 ---
 

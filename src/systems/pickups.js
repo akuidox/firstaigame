@@ -4,10 +4,10 @@
 import * as THREE from 'three';
 import { KEY_COLORS } from '../world/tiles.js';
 import {
-  makeHealthTexture, makeAmmoTexture, makeWeaponPickupTexture, makeKeycardTexture,
+  makeHealthTexture, makeAmmoTexture, makeWeaponPickupTexture, makeKeycardTexture, makeOrbTexture,
 } from '../core/assets.js';
 
-const VALUES = { health: 25, ammo: 10, weaponAmmo: 14 };
+const VALUES = { health: 25, ammo: 10, weaponAmmo: 14, orbAmmo: 4, soul: 2 };
 
 let _tex = null;
 function textures() {
@@ -16,6 +16,8 @@ function textures() {
     health: makeHealthTexture(),
     ammo: makeAmmoTexture(),
     weapon: makeWeaponPickupTexture(),
+    orb: makeOrbTexture('#9a3cff'),
+    soul: makeOrbTexture('#6a4cff'),
     keys: { r: makeKeycardTexture(KEY_COLORS.r.hex), g: makeKeycardTexture(KEY_COLORS.g.hex), b: makeKeycardTexture(KEY_COLORS.b.hex) },
   };
   return _tex;
@@ -85,6 +87,19 @@ export class Pickups {
           weapons.addAmmo('fire', VALUES.weaponAmmo);
           onMessage?.(`+${VALUES.weaponAmmo} fire charges`);
         }
+        return true;
+      case 'orb':
+        if (!weapons.owned.has('chaosorb')) {
+          weapons.give('chaosorb', VALUES.orbAmmo);
+          onMessage?.('Picked up the CHAOS ORB! (press 3)');
+        } else {
+          weapons.addAmmo('soul', VALUES.orbAmmo);
+          onMessage?.(`+${VALUES.orbAmmo} souls`);
+        }
+        return true;
+      case 'soul':
+        weapons.addAmmo('soul', VALUES.soul);
+        onMessage?.(`+${VALUES.soul} souls`);
         return true;
       case 'key':
         player.keys.add(it.color);
