@@ -1,0 +1,25 @@
+{
+  "name": "firstaigame",
+  "version": "0.1.0",
+  "description": "Grimhold — a retro dark-fantasy FPS (Doom-like) built with Three.js",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "node build.mjs dev",
+    "build": "node build.mjs build",
+    "test": "node build.mjs build && echo build-ok"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/akuidox/firstaigame"
+  },
+  "keywords": ["game", "fps", "three.js", "doom-like", "retro"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.11"
+  }
+}
