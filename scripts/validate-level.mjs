@@ -5,10 +5,9 @@
 //   - required things (exit, keys, weapon) unreachable from the start
 //   - a key sealed behind the very door it opens (softlock)
 
-import { level1 } from '../src/world/level1.js';
+import { LEVELS } from '../src/world/levels.js';
 import { LOCKED_DOORS } from '../src/world/tiles.js';
 
-const levels = { level1 };
 let failures = 0;
 const fail = (msg) => { console.log('  ✗ ' + msg); failures++; };
 const ok = (msg) => console.log('  ✓ ' + msg);
@@ -43,8 +42,9 @@ function reachable(grid, start, blocked) {
   return seen;
 }
 
-for (const [name, lvl] of Object.entries(levels)) {
-  console.log(`\n${name} — "${lvl.name}"`);
+for (let li = 0; li < LEVELS.length; li++) {
+  const lvl = LEVELS[li];
+  console.log(`\nlevel${li + 1} — "${lvl.name}"`);
   const grid = lvl.grid;
   const W = grid[0].length;
 
@@ -71,15 +71,19 @@ for (const [name, lvl] of Object.entries(levels)) {
 
   if (!starts.length || bad.length) { console.log('  (skipping reachability)'); continue; }
 
-  // 4. reachability (doors passable)
+  // 4. reachability (doors + secret walls passable)
   const reach = reachable(grid, starts[0], null);
-  const need = { exit: 'E', weapon: 'w' };
-  for (const [label, ch] of Object.entries(need)) {
+  // exit is required; weapons carry between levels so they're optional-if-present
+  const exits = cells(grid, (c) => c === 'E');
+  if (!exits.length) fail('no exit (E) on map');
+  else exits.every(([x, y]) => reach.has(x + ',' + y)) ? ok('exit reachable') : fail('exit unreachable from start');
+  for (const [label, ch] of [['weapon', 'w'], ['chaos orb', 'o']]) {
     const targets = cells(grid, (c) => c === ch);
-    if (!targets.length) { fail(`no ${label} (${ch}) on map`); continue; }
-    const got = targets.every(([x, y]) => reach.has(x + ',' + y));
-    got ? ok(`${label} reachable`) : fail(`${label} (${ch}) unreachable from start`);
+    if (!targets.length) continue;
+    targets.every(([x, y]) => reach.has(x + ',' + y)) ? ok(`${label} reachable`) : fail(`${label} (${ch}) unreachable`);
   }
+  const secrets = cells(grid, (c) => c === '%').length;
+  if (secrets) ok(`${secrets} secret(s)`);
 
   // 5. every locked door has its key, and the key isn't behind that door
   for (const [door, keyCh] of Object.entries(LOCKED_DOORS)) {

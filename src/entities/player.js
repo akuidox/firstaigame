@@ -23,6 +23,7 @@ export class Player {
     this.health = 100;
     this.maxHealth = 100;
     this.armor = 0;
+    this.speedMult = 1;           // set from upgrade mods
     this.keys = new Set();        // 'r' | 'g' | 'b'
     this.alive = true;
     this.bob = 0;
@@ -100,7 +101,7 @@ export class Player {
     if (wish.lengthSq() > 0) wish.normalize();
 
     // accelerate toward wish velocity, apply friction otherwise
-    const target = wish.multiplyScalar(SPEED);
+    const target = wish.multiplyScalar(SPEED * this.speedMult);
     this.vel.x = approach(this.vel.x, target.x, (wish.lengthSq() ? ACCEL : FRICTION) * dt);
     this.vel.z = approach(this.vel.z, target.z, (wish.lengthSq() ? ACCEL : FRICTION) * dt);
 
@@ -146,7 +147,8 @@ export class Player {
       const col = { r: 'red', g: 'green', b: 'blue' }[best.keyColor];
       this.ctx.onMessage?.(`You need the ${col} sigil.`);
     } else if (res === 'opened') {
-      this.ctx.onMessage?.(best.locked ? 'The sealed gate grinds open.' : 'The door creaks open.');
+      if (best.secret) { this.ctx.onMessage?.('You found a secret!'); this.ctx.onSecretFound?.(); }
+      else this.ctx.onMessage?.(best.locked ? 'The sealed gate grinds open.' : 'The door creaks open.');
     }
   }
 

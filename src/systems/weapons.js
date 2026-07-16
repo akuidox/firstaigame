@@ -45,6 +45,7 @@ export class WeaponManager {
     this.cooldown = 0;
     this.flash = 0;                 // 0..1, decays; HUD renders muzzle flash
     this.recoil = 0;                // 0..1, decays; HUD kicks the viewmodel
+    this.mods = { damage: 1, fireRate: 1, orbRadius: 1 }; // from upgrades
     this.raycaster = new THREE.Raycaster();
     this._tracers = [];
   }
@@ -86,7 +87,7 @@ export class WeaponManager {
       return;
     }
     if (d.ammo) this.ammo[d.ammo] -= need;
-    this.cooldown = d.cooldown;
+    this.cooldown = d.cooldown / this.mods.fireRate;
     this.flash = 1;
     this.recoil = 1;
 
@@ -98,7 +99,8 @@ export class WeaponManager {
     if (d.kind === 'projectile') {
       this.ctx.spawnProjectile({
         x: origin.x, z: origin.z, dx: baseDir.x, dz: baseDir.z,
-        speed: d.projSpeed, damage: d.damage, splash: d.splash, from: 'player', color: d.color,
+        speed: d.projSpeed, damage: d.damage * this.mods.damage, splash: d.splash * this.mods.orbRadius,
+        from: 'player', color: d.color,
       });
       this.ctx.onFire?.('shot');
       return;
@@ -135,7 +137,7 @@ export class WeaponManager {
       this._spawnTracer(origin, end, d.tracer);
       if (target) {
         hitAny = true; hitPoint = end;
-        const dead = target.damage(d.damage, origin);
+        const dead = target.damage(d.damage * this.mods.damage, origin);
         if (dead) this.ctx.onKill?.(target);
       }
     }

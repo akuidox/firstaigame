@@ -4,7 +4,7 @@
 // that doors mutate as they open.
 
 import * as THREE from 'three';
-import { WORLD_SCALE as S, WALL_HEIGHT as H, KEY_COLORS, LOCKED_DOORS, isBlockingChar } from './tiles.js';
+import { WORLD_SCALE as S, WALL_HEIGHT as H, KEY_COLORS, LOCKED_DOORS, SECRET_CHAR, isBlockingChar } from './tiles.js';
 import {
   makeWallTexture, makeFloorTexture, makeCeilingTexture, makeDoorTexture,
 } from '../core/assets.js';
@@ -51,6 +51,7 @@ class Door {
     this.collision = collision;
     this.locked = opts.locked || false;
     this.keyColor = opts.keyColor || null;   // 'r' | 'g' | 'b'
+    this.secret = opts.secret || false;
     this.opening = false;
     this.open = false;
     this.t = 0;
@@ -155,7 +156,15 @@ export function buildLevel(scene, level) {
           spawns.exit = { x: p.x, z: p.z, gx, gy };
           break;
         default:
-          if (ch === '+' || LOCKED_DOORS[ch]) {
+          if (ch === SECRET_CHAR) {
+            // a secret push-wall: looks exactly like a wall, opens with Use
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(S, H, S), wallMat);
+            mesh.position.set(p.x, H / 2, p.z);
+            group.add(mesh);
+            solids.push(mesh);
+            collision.set(gx, gy, true);
+            doors.push(new Door(mesh, gx, gy, collision, { secret: true }));
+          } else if (ch === '+' || LOCKED_DOORS[ch]) {
             const locked = !!LOCKED_DOORS[ch];
             const keyColor = locked ? LOCKED_DOORS[ch] : null;
             const hex = locked ? KEY_COLORS[keyColor].hex : '#6a4a2a';

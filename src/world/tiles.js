@@ -13,6 +13,7 @@
 //   h  health pickup      a  ammo (fire)          w  weapon (Inferno)
 //   o  Chaos Orb weapon   s  soul ammo (Chaos Orb)
 //   t  wall torch (light + decoration)            E  exit trigger
+//   %  secret push-wall (looks solid; opens with Use, counts as a secret)
 //
 // Anything not listed is treated as floor.
 
@@ -28,11 +29,12 @@ export const KEY_COLORS = {
 // Which key each locked-door char requires.
 export const LOCKED_DOORS = { R: 'r', G: 'g', B: 'b' };
 
+export const SECRET_CHAR = '%';
 export const WALL_CHARS = new Set(['#']);
 export const DOOR_CHARS = new Set(['+', 'R', 'G', 'B']);
 
 export function isBlockingChar(ch) {
-  return WALL_CHARS.has(ch) || DOOR_CHARS.has(ch);
+  return WALL_CHARS.has(ch) || DOOR_CHARS.has(ch) || ch === SECRET_CHAR;
 }
 
 export function isFloorLike(ch) {

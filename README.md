@@ -4,9 +4,9 @@ A retro, dark-fantasy first-person shooter — a Doom / *Project Warlock*-style
 "boomer shooter" built with **Three.js**. One complete level with a full game
 loop: start → objectives → end.
 
-> **Status:** playable vertical slice (V1). Core loop works end to end. Designed
-> to be *bonified* over time (RPG / rogue-lite systems layer on top — see
-> [Roadmap](#roadmap)).
+> **Status:** playable 2-level episode with a Warlock-style upgrade system and
+> saves. Core loop works end to end and is still designed to be *bonified*
+> further (more levels, rogue-lite systems — see [Roadmap](#roadmap)).
 
 ---
 
@@ -58,6 +58,21 @@ spread, fire charges) · `3` Chaos Orb (explosive projectile, souls).
 **Enemies:** imps (melee), cultists (ranged bolts), hounds (fast chargers), and
 the Guardian boss.
 
+### Progression, upgrades & saves
+
+- **Episode of 2 levels.** Clear a level's exit (after killing its guardian) to
+  descend. Weapons, ammo and health carry over; keys reset each level.
+- **Upgrades (Warlock-style).** Kills grant XP → character levels → skill points.
+  Between levels an intermission screen lets you spend them on Vitality, Power,
+  Swiftness, Warding, Rapidity and Cataclysm.
+- **Secrets.** Some walls are secret push-walls — press Use (`E`) against a
+  suspicious wall to open it. Each level tracks secrets found.
+- **Saves.** Progress autosaves to the browser at the start of each level; the
+  menu shows **Continue**. Because some browsers block storage on `file://`,
+  every save can also be exported/imported as a copy-paste **save code**
+  ("copy save code" on the intermission screen, "load save code" on the menu).
+  Dying reloads the current level's checkpoint with your upgrades intact.
+
 ---
 
 ## Architecture
@@ -74,17 +89,23 @@ src/
     assets.js          procedural textures & pixel-art sprites  ← graphiste seam
   world/
     tiles.js           map legend + world constants
-    level1.js          the level, authored as ASCII            ← level-design seam
+    levels.js          ordered episode registry
+    level1.js          "Grimhold Crypts"  (ASCII)              ← level-design seam
+    level2.js          "The Sunken Vaults" (ASCII)             ← level-design seam
     levelBuilder.js    grid → geometry + collision + spawns
   entities/
     player.js          FPS controller, collision, stats
     enemy.js           billboard sprites + chase/attack AI
   systems/
     weapons.js         data-driven weapons + hitscan combat
-    pickups.js         health / ammo / weapon / keys
+    projectiles.js     Chaos Orb + dodgeable enemy bolts
+    pickups.js         health / ammo / weapons / keys
+    progression.js     XP, skill points, upgrade tree, stat mods
+    save.js            localStorage + export/import save codes
   ui/
-    hud.js             HUD + weapon viewmodel                   ← UX/UI seam
+    hud.js             HUD, viewmodel, minimap                  ← UX/UI seam
     screens.js         start / win / lose menus
+    upgrades.js        between-level intermission screen        ← UX/UI seam
 ```
 
 ### Agent seams
@@ -105,11 +126,13 @@ src/
 
 The systems are intentionally decoupled so we can layer on depth:
 
-- **Doom-like + pickups** (V1, done) — arcade core, health/ammo/keys.
-- **RPG-lite** — character levels, upgradeable damage/health, small inventory.
-- **Rogue-lite** — generated levels (the grid format already supports it),
+- **Doom-like + pickups** (done) — arcade core, health/ammo/keys, 3 weapons,
+  4 enemy types + boss, hit/damage juice, minimap.
+- **Episode + RPG-lite** (done) — 2 chained levels, secrets, XP/skill-point
+  upgrades, carry-over, autosave + save codes.
+- **Rogue-lite** (next) — generated levels (the grid format already supports it),
   permadeath, run-based meta-progression.
-- More weapons, enemies, a multi-level episode, music, and a proper art pass.
+- More levels/weapons/enemies, music, and a proper art pass (graphiste agent).
 
 ---
 

@@ -8,15 +8,18 @@ import * as THREE from 'three';
 import { Input } from './core/input.js';
 import { Audio } from './core/audio.js';
 import { buildLevel } from './world/levelBuilder.js';
-import { WORLD_SCALE as S } from './world/tiles.js';
-import { level1 } from './world/level1.js';
+import { WORLD_SCALE as S, SECRET_CHAR } from './world/tiles.js';
+import { LEVELS } from './world/levels.js';
 import { Player } from './entities/player.js';
 import { Enemy, resetSpriteCache } from './entities/enemy.js';
 import { WeaponManager } from './systems/weapons.js';
 import { Pickups } from './systems/pickups.js';
 import { Projectiles } from './systems/projectiles.js';
+import { Progression } from './systems/progression.js';
+import * as Save from './systems/save.js';
 import { Hud } from './ui/hud.js';
 import { Screens } from './ui/screens.js';
+import { UpgradeScreen } from './ui/upgrades.js';
 
 const MAX_TORCH_LIGHTS = 6;
 
@@ -44,8 +47,12 @@ class Game {
     this.audio = new Audio();
     this.hud = new Hud(root);
     this.screens = new Screens(root);
+    this.upgradeScreen = new UpgradeScreen(root);
     this._buildPauseOverlay();
 
+    this.progression = new Progression();
+    this.levelIndex = 0;
+    this.carry = null;              // { health, armor, owned, ammo, current } across levels
     this.levelGroup = null;
     this.tracers = [];
     this.gibs = [];
@@ -62,8 +69,22 @@ class Game {
     window.addEventListener('resize', () => this._onResize());
 
     this.buildWorld();
-    this.screens.showStart(() => this.startGame());
+    this._showMenu();
     this.renderer.setAnimationLoop(() => this._frame());
+  }
+
+  _showMenu() {
+    this.state = 'menu';
+    this.hud.setVisible(false);
+    this.screens.showStart({
+      hasSave: Save.hasSave(),
+      onNew: () => this.newGame(),
+      onContinue: () => this.continueGame(Save.readSave()),
+      onImport: (code) => {
+        const d = Save.importCode(code);
+        if (d) this.continueGame(d); else this.hud.message_('Invalid save code.');
+      },
+    });
   }
 
   _buildPauseOverlay() {
@@ -104,7 +125,7 @@ class Game {
     if (this.projectiles) this.projectiles.clear();
     resetSpriteCache();
 
-    const lvl = level1;
+    const lvl = LEVELS[this.levelIndex];
     this.scene.background = new THREE.Color(lvl.fog.color);
     this.scene.fog = new THREE.Fog(lvl.fog.color, lvl.fog.near, lvl.fog.far);
     this.ambient.color.setHex(lvl.ambient);
@@ -136,6 +157,7 @@ class Game {
       collision: this.collision,
       doors: this.doors,
       onMessage: (m) => { this.hud.message_(m); if (/gate|door/i.test(m)) this.audio.play('door'); if (/need/i.test(m)) this.audio.play('locked'); },
+      onSecretFound: () => { this.progression.secrets++; this.audio.play('key'); },
       onDeath: () => this.lose(),
     });
     this.player.spawn(spawns.player.x, spawns.player.z, 0);
@@ -175,20 +197,109 @@ class Game {
     // pickups
     this.pickups = new Pickups(this.scene, spawns);
 
+    // apply upgrade mods, then carry weapons/ammo/health from the previous level
+    const mods = this.progression.mods();
+    this.player.maxHealth = mods.maxHealth;
+    this.player.speedMult = mods.speed;
+    this.weapons.mods = { damage: mods.damage, fireRate: mods.fireRate, orbRadius: mods.orbRadius };
+    if (this.carry) {
+      this.weapons.owned = new Set(this.carry.owned);
+      this.weapons.ammo = { ...this.carry.ammo };
+      this.weapons.current = this.carry.current;
+      this.player.health = Math.min(this.carry.health, this.player.maxHealth);
+      this.player.armor = Math.max(mods.armor, this.carry.armor);
+    } else {
+      this.player.health = this.player.maxHealth;
+      this.player.armor = mods.armor;
+    }
+
+    this.secretsTotal = lvl.grid.join('').split('').filter((c) => c === SECRET_CHAR).length;
     this.hud.setMap(lvl.grid);
     this.kills = 0;
     this._menuYaw = 0;
   }
 
-  startGame() {
-    if (this.state === 'playing') return;
+  captureCarry() {
+    return {
+      health: this.player.health, armor: this.player.armor,
+      owned: [...this.weapons.owned], ammo: { ...this.weapons.ammo }, current: this.weapons.current,
+    };
+  }
+
+  saveSnapshot() {
+    return {
+      levelIndex: this.levelIndex,
+      progression: this.progression.serialize(),
+      carry: this.captureCarry(),
+    };
+  }
+
+  autosave() { Save.writeSave(this.saveSnapshot()); }
+  exportCode() { return Save.exportCode(this.saveSnapshot()); }
+  loadCode(code) { const d = Save.importCode(code); if (d) this.continueGame(d); return !!d; }
+
+  newGame() {
     this.audio.resume();
-    if (this.state !== 'menu') this.buildWorld(); // fresh run after win/lose
+    Save.clearSave();
+    this.progression.reset();
+    this.levelIndex = 0;
+    this.carry = null;
+    this.buildWorld();
+    this.autosave();
+    this.startPlaying();
+  }
+
+  continueGame(data) {
+    this.audio.resume();
+    if (!data) { this.newGame(); return; }
+    this.progression.load(data.progression);
+    this.levelIndex = Math.min(data.levelIndex || 0, LEVELS.length - 1);
+    this.carry = data.carry || null;
+    this.buildWorld();
+    Save.writeSave(this.saveSnapshot());   // persist (e.g. when imported from a code)
+    this.startPlaying();
+  }
+
+  startPlaying() {
     this.screens.hide();
+    this.upgradeScreen.hide();
+    this.pauseEl.style.display = 'none';
+    this.hud.setVisible(true);
     this.state = 'playing';
     this.paused = false;
-    this.startTime = performance.now();
     this.input.requestLock();
+  }
+
+  reloadCheckpoint() {
+    const data = Save.readSave();
+    data ? this.continueGame(data) : this.newGame();
+  }
+
+  completeLevel() {
+    if (this.state !== 'playing') return;
+    this.carry = this.captureCarry();
+    if (this.levelIndex >= LEVELS.length - 1) { this.win(); return; }
+    // set state before releasing the mouse so onLockChange won't trigger a pause
+    this.state = 'intermission';
+    this.input.exitLock();
+    this.pauseEl.style.display = 'none';
+    this.hud.setVisible(false);
+    this.audio.play('win');
+    this.upgradeScreen.show(this.progression, {
+      clearedName: LEVELS[this.levelIndex].name,
+      nextName: LEVELS[this.levelIndex + 1].name,
+      onBuy: (id) => this.progression.buy(id),
+      onDescend: () => this.descend(),
+      onExportCode: () => Save.exportCode(this.saveSnapshot()),
+    });
+  }
+
+  descend() {
+    this.levelIndex++;
+    this.carry.health = Math.min(this.progression.mods().maxHealth, this.carry.health + 30); // heal on descent
+    this.buildWorld();
+    this.autosave();
+    this.startPlaying();
   }
 
   _pause() { this.paused = true; this.pauseEl.style.display = 'flex'; }
@@ -196,6 +307,7 @@ class Game {
 
   onKill(e) {
     this.kills++;
+    this.progression.addKill(e.kind);
     this.audio.play(e.isBoss ? 'boss' : 'kill');
     const gibColor = { imp: 0xaa2a1a, cultist: 0x6a3c9a, hound: 0xff6a2a, boss: 0x8b1a1a }[e.kind] || 0xaa2a1a;
     this.spawnGibs(e.position, gibColor, e.isBoss ? 28 : 12);
@@ -269,21 +381,29 @@ class Game {
   }
 
   objectiveText() {
-    if (!this.player.keys.has('r')) return 'Objective: find the RED sigil';
-    const redDoor = this.doors.find((d) => d.keyColor === 'r');
-    if (redDoor && !redDoor.open) return 'Objective: open the sealed RED gate';
+    // the first still-locked gate on the map drives the objective, any color
+    const gate = this.doors.find((d) => d.keyColor && !d.open);
+    if (gate) {
+      const col = { r: 'RED', g: 'GREEN', b: 'BLUE' }[gate.keyColor];
+      return this.player.keys.has(gate.keyColor)
+        ? `Objective: open the sealed ${col} gate`
+        : `Objective: find the ${col} sigil`;
+    }
     if (this.boss && this.boss.alive) return 'Objective: slay the guardian';
     return 'Objective: escape through the gate!';
   }
 
   win() {
-    if (this.state !== 'playing') return;
     this.state = 'win';
     this.input.exitLock();
+    this.hud.setVisible(false);
     this.audio.play('win');
-    const secs = Math.max(0, (performance.now() - this.startTime) / 1000);
+    Save.clearSave();                       // episode complete
+    const secs = this.progression.timeMs / 1000;
     const time = `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
-    this.screens.showWin({ time, kills: this.kills, total: this.totalEnemies, keys: this.player.keys.size }, () => this.startGame());
+    this.screens.showWin({
+      time, kills: this.progression.totalKills, secrets: this.progression.secrets, level: this.progression.level,
+    }, () => this._backToMenu());
   }
 
   lose() {
@@ -291,13 +411,23 @@ class Game {
     this.state = 'lose';
     this.audio.play('hurt');
     this.input.exitLock();
-    this.screens.showLose(() => this.startGame());
+    this.hud.setVisible(false);
+    this.screens.showLose(() => this.reloadCheckpoint());
+  }
+
+  _backToMenu() {
+    this.progression.reset();
+    this.levelIndex = 0;
+    this.carry = null;
+    this.buildWorld();
+    this._showMenu();
   }
 
   _frame() {
     const dt = Math.min(0.05, this.clock.getDelta());
 
     if (this.state === 'playing' && !this.paused) {
+      this.progression.timeMs += dt * 1000;
       this.player.update(dt, this.input);
       this.weapons.update(dt, this.input);
       for (const e of this.enemies) e.update(dt);
@@ -315,7 +445,7 @@ class Game {
         const dx = this.player.pos.x - this.exit.x, dz = this.player.pos.z - this.exit.z;
         if (dx * dx + dz * dz < (S * 0.8) ** 2) {
           if (this.boss && this.boss.alive) this.hud.message_('The gate resists — the guardian still lives.');
-          else this.win();
+          else this.completeLevel();
         }
       }
 
@@ -327,6 +457,11 @@ class Game {
         hurtDir: this.player.hurtDir, hurtDirActive: this.player.hurtDirActive,
         objective: this.objectiveText(),
         boss: this.boss ? { active: this.boss.aggro && this.boss.alive, hp: this.boss.hp, maxHp: this.boss.maxHp, name: 'THE GUARDIAN' } : null,
+        prog: {
+          level: this.progression.level, xp: this.progression.xp, xpNeed: this.progression.xpForLevel(),
+          skillPoints: this.progression.skillPoints, secrets: this.progression.secrets, secretsTotal: this.secretsTotal,
+          levelNum: this.levelIndex + 1, levelCount: LEVELS.length, levelName: LEVELS[this.levelIndex].name,
+        },
         map: {
           scale: S, px: this.player.pos.x, pz: this.player.pos.z, yaw: this.player.yaw,
           enemies: this.enemies, pickups: this.pickups.items, doors: this.doors, exit: this.exit,

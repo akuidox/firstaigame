@@ -25,6 +25,10 @@ facing overview and full architecture. This file is orientation for agents.
   `src/world/tiles.js`. Every row must be the same length. Validate before commit.
 - **Systems are decoupled** (weapons / enemies / pickups / doors are data-driven)
   so RPG and rogue-lite features can layer on without rewrites.
+- **Episode = a registry.** Levels are listed in `src/world/levels.js`; add one
+  by appending. Progression (`systems/progression.js`) carries XP/upgrades and
+  derives the stat mods the player/weapons read. Saves (`systems/save.js`) are
+  versioned — bump `SAVE_VERSION` on any schema change.
 - Rendering vs collision are separate: walls draw via one InstancedMesh; collision
   is a Set of blocked cells that doors mutate when opened.
 - Three.js r160 uses physically-correct lighting — point-light intensities are in

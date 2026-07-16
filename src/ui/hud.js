@@ -27,6 +27,7 @@ export class Hud {
 
   setMap(grid) { this._grid = grid; }
   hitmarker() { this._hitTimer = 0.16; }
+  setVisible(v) { this.overlay.style.display = v ? 'block' : 'none'; }
 
   _el(tag, style, parent) {
     const e = document.createElement(tag);
@@ -114,6 +115,11 @@ export class Hud {
       position: 'absolute', top: '14px', left: '18px', display: 'flex', gap: '8px',
     });
 
+    // progression (below keys)
+    this.progBox = this._el('div', {
+      position: 'absolute', top: '38px', left: '18px', fontSize: '12px', lineHeight: '1.5',
+    });
+
     // minimap / automap (top-right)
     this.mapWrap = this._el('div', {
       position: 'absolute', top: '14px', right: '18px',
@@ -191,6 +197,18 @@ export class Hud {
     }
 
     this.objective.textContent = s.objective || '';
+
+    // progression (level / xp / secrets)
+    if (s.prog) {
+      const p = s.prog;
+      const pct = Math.min(100, (p.xp / p.xpNeed) * 100);
+      this.progBox.innerHTML =
+        `<div style="opacity:.6">${p.levelName} · ${p.levelNum}/${p.levelCount}</div>` +
+        `<div>LVL <b style="color:#c9b0ff">${p.level}</b>${p.skillPoints ? ` <span style="color:#8affa0">+${p.skillPoints} SP</span>` : ''}</div>` +
+        `<div style="width:118px;height:6px;background:rgba(255,255,255,0.1);border:1px solid rgba(232,193,74,0.35);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#c9b0ff,#7a5cff)"></div></div>` +
+        (p.secretsTotal ? `<div style="opacity:.6">Secrets ${p.secrets}/${p.secretsTotal}</div>` : '');
+    }
 
     // damage vignette + flash + directional indicator
     const hurt = Math.max(s.hurt || 0, 0);
